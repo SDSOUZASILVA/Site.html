@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mural da Eternidade</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #000; /* Fundo preto */
+            color: white;
+            text-align: center;
+            padding: 50px;
+        }
+        h1 {
+            color: #FFD700;
+            font-size: 3em;
+            text-shadow: 2px 2px 5px black;
+        }
+        form {
+            margin-bottom: 20px;
+        }
+        input[type="text"], input[type="number"], textarea {
+            padding: 10px;
+            font-size: 16px;
+            margin: 5px;
+            border-radius: 5px;
+            border: none;
+        }
+        input[type="submit"] {
+            padding: 10px 20px;
+            font-size: 16px;
+            background-color: #333;
+            color: white;
+            border: none;
+            cursor: pointer;
+            border-radius: 5px;
+        }
+        ul {
+            list-style-type: none;
+            padding: 0;
+        }
+        li {
+            background-color: rgba(255, 255, 255, 0.2);
+            margin: 10px 0;
+            padding: 15px;
+            border-radius: 5px;
+            text-align: left;
+        }
+        .info {
+            font-size: 14px;
+            color: #FFF;
+        }
+        .visit-counter {
+            margin: 20px 0;
+            padding: 10px;
+            font-size: 18px;
+            color: #333;
+            background-color: rgba(255, 255, 255, 0.8);
+            display: inline-block;
+            border-radius: 10px;
+        }
+        .footer {
+            margin-top: 50px;
+            font-size: 1.2em;
+            color: #FFD700;
+        }
+    </style>
+    <!-- Adicionando o jsPDF -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+</head>
+<body>
+    <h1>Mural da Eternidade</h1>
+    <p>Deixe seu nome aqui para a eternidade.</p>
+
+    <div class="visit-counter">
+        Número de visitas: <span id="visitCount">0</span>
+    </div>
+
+    <form id="nameForm">
+        <input type="text" id="nameInput" placeholder="Digite seu nome" required><br>
+        <textarea id="legacyInput" placeholder="Escreva uma frase de até 200 caracteres como seu legado" maxlength="200" required></textarea><br>
+        <input type="number" id="cpfInput" placeholder="Digite seu CPF" required><br>
+        <label for="colorInput">Escolha uma cor para seu nome:</label>
+        <select id="colorInput" required>
+            <option value="green">Verde</option>
+            <option value="pink">Rosa</option>
+            <option value="black">Preto</option>
+            <option value="blue">Azul</option>
+            <option value="red">Vermelho</option>
+            <option value="yellow">Amarelo</option>
+        </select><br><br>
+        <input type="submit" value="Adicionar">
+    </form>
+
+    <ul id="nameList"></ul>
+
+    <div class="footer">
+        <p>Criado por Alexandre Souza da Silva</p>
+    </div>
+
+    <script>
+        let count = 0; // Contador para sequenciar os nomes
+        let visitCount = localStorage.getItem('visitCount') ? parseInt(localStorage.getItem('visitCount')) : 0;
+        let cpfList = []; // Lista para armazenar CPFs
+
+        // Incrementa o contador de visitas e armazena no localStorage
+        function incrementVisitCount() {
+            visitCount++;
+            localStorage.setItem('visitCount', visitCount);
+            document.getElementById('visitCount').textContent = visitCount;
+        }
+
+        // Exibe o número de visitas ao carregar a página
+        window.onload = function() {
+            incrementVisitCount();
+        };
+
+        document.getElementById('nameForm').addEventListener('submit', function(event) {
+            event.preventDefault(); // Previne o recarregamento da página
+
+            // Obtém o nome, a frase do legado, o CPF e a cor selecionada
+            var nameInput = document.getElementById('nameInput');
+            var legacyInput = document.getElementById('legacyInput');
+            var cpfInput = document.getElementById('cpfInput');
+            var colorInput = document.getElementById('colorInput');
+            var name = nameInput.value;
+            var legacy = legacyInput.value;
+            var cpf = cpfInput.value;
+            var color = colorInput.value;
+
+            // Verifica se o CPF já foi utilizado
+            if (cpfList.includes(cpf)) {
+                alert("Este CPF já foi usado para uma inscrição.");
+                return;
+            }
+
+            // Armazena o CPF na lista de CPFs usados
+            cpfList.push(cpf);
+
+            // Obtém a data e hora atuais
+            var now = new Date();
+            var date = now.toLocaleDateString('pt-BR');
+            var time = now.toLocaleTimeString('pt-BR');
+
+            count++; // Incrementa o número da sequência
+
+            // Formata o CPF para mostrar apenas os 3 primeiros e os 2 últimos dígitos
+            var cpfMasked = cpf.slice(0, 3) + ".***.***-" + cpf.slice(-2);
+
+            // Cria um novo item de lista com o nome, data, hora, cor e frase do legado
+            var li = document.createElement('li');
+            li.style.color = color; // Define a cor do nome
+            li.innerHTML = `
+                <strong>${count}. ${name}</strong><br>
+                <span class="info">Frase: "${legacy}"</span><br>
+                <span class="info">Data: ${date} - Hora: ${time}</span><br>
+                <span class="info">CPF: ${cpfMasked}</span><br>
+                <span class="info">Número da Visita: ${visitCount}</span>
+            `;
+
+            // Adiciona o nome à lista
+            document.getElementById('nameList').appendChild(li);
+
+            // Gera o cartão em PDF
+            generatePDF(name, legacy, date, time, count, visitCount);
+
+            // Limpa os campos de texto para a próxima entrada
+            nameInput.value = '';
+            legacyInput.value = '';
+            cpfInput.value = '';
+        });
+
+        // Função para gerar o PDF
+        function generatePDF(name, legacy, date, time, count, visitCount) {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+
+            // Definir o conteúdo do PDF
+            doc.setFontSize(20);
+            doc.text("Cartão de Registro", 105, 20, null, null, "center");
+
+            doc.setFontSize(12);
+            doc.text(`Número de Registro: ${count}`, 20, 40);
+            doc.text(`Nome: ${name}`, 20, 50);
+            doc.text(`Frase do Legado: "${legacy}"`, 20, 60);
+            doc.text(`Data: ${date}`, 20, 70);
+            doc.text(`Hora: ${time}`, 20, 80);
+            doc.text(`Número da Visita: ${visitCount}`, 20, 90);
+
+            // Salvar o PDF com nome e registro
+            doc.save(`cartao_${name}_${count}.pdf`);
+        }
+    </script>
+</body>
+</html>
